@@ -13,3 +13,8 @@ TutorialInfo/
 Characters/
 DungeonJanitors1.slnx
 .csproj
+Library/
+.plastic/
+Logs/
+ProjectSettings/
+Temp/
