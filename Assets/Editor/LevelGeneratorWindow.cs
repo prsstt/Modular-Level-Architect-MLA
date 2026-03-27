@@ -144,9 +144,70 @@ public class LevelGeneratorWindow : EditorWindow
 
     private void DrawBuilderHelperTab()
     {
-            GUILayout.Label("Room Builder Helper", EditorStyles.boldLabel);
-            selectedShapeGuide = (RoomShapeGuide)EditorGUILayout.EnumPopup("Shape Guide", selectedShapeGuide);
-            EditorGUILayout.HelpBox("Select a shape guide to display wireframes and labels in the Scene View to assist with prefab creation.", MessageType.Info);
+        GUILayout.Label("Room Builder Helper", EditorStyles.boldLabel);
+        selectedShapeGuide = (RoomShapeGuide)EditorGUILayout.EnumPopup("Shape Guide", selectedShapeGuide);
+        EditorGUILayout.HelpBox("Select a shape guide to display wireframes and labels in the Scene View to assist with prefab creation.", MessageType.Info);
+
+        EditorGUILayout.Space();
+        GUILayout.Label("Active Tools", EditorStyles.boldLabel);
+
+        if (GUILayout.Button("Create Template Room", GUILayout.Height(30)))
+        {
+            CreateTemplateRoom();
+        }
+
+        if (GUILayout.Button("Snap Selected to Center", GUILayout.Height(30)))
+        {
+            SnapSelectedToCenter();
+        }
+    }
+
+    private void CreateTemplateRoom()
+    {
+        GameObject templateRoom = new GameObject("New_Room_Template");
+        templateRoom.transform.position = Vector3.zero;
+        templateRoom.transform.rotation = Quaternion.identity;
+
+        string[] childNames = new string[]
+        {
+            "WallTop_Closed", "WallTop_Open",
+            "WallBottom_Closed", "WallBottom_Open",
+            "WallLeft_Closed", "WallLeft_Open",
+            "WallRight_Closed", "WallRight_Open",
+            "RandomProps"
+        };
+
+        foreach (string childName in childNames)
+        {
+            GameObject child = new GameObject(childName);
+            child.transform.SetParent(templateRoom.transform);
+            child.transform.localPosition = Vector3.zero;
+            child.transform.localRotation = Quaternion.identity;
+        }
+
+        // Register undo so the user can Ctrl+Z the creation 
+        Undo.RegisterCreatedObjectUndo(templateRoom, "Create Template Room");
+        
+        // Automatically select the new template to streamline workflow
+        Selection.activeGameObject = templateRoom;
+        
+        Debug.Log("<color=green>New Room Template created successfully!</color>");
+    }
+
+    private void SnapSelectedToCenter()
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
+        {
+            Debug.LogWarning("Cannot snap: No GameObject is currently selected in the hierarchy.");
+            return;
+        }
+
+        Undo.RecordObject(selected.transform, "Snap to Center");
+        selected.transform.position = Vector3.zero;
+        selected.transform.rotation = Quaternion.identity;
+        
+        Debug.Log($"<color=cyan>Snapped '{selected.name}' to center (Vector3.zero).</color>");
     }
 
     private void RunGeneration(bool isDebugMode)
@@ -258,9 +319,13 @@ public class LevelGeneratorWindow : EditorWindow
     {
         if (selectedTab != 1 || selectedShapeGuide == RoomShapeGuide.None) return;
 
-        // The Grid Bounds: Draw a faint 20x20 bounding box at Vector3.zero
+        // Use the roomSpacing variable to dynamically scale the visual guides
+        float boundsSize = roomSpacing;
+        float halfBounds = boundsSize / 2f;
+
+        // The Grid Bounds: Draw a faint bounding box at Vector3.zero
         Handles.color = Color.cyan;
-        Handles.DrawWireCube(Vector3.zero, new Vector3(20, 0, 20));
+        Handles.DrawWireCube(Vector3.zero, new Vector3(boundsSize, 0, boundsSize));
 
         // The Labels
         GUIStyle labelStyle = new GUIStyle();
@@ -269,40 +334,52 @@ public class LevelGeneratorWindow : EditorWindow
         labelStyle.fontSize = 12;
         labelStyle.fontStyle = FontStyle.Bold;
 
-        Handles.Label(new Vector3(0, 0, 10), "WallTop_Closed / Open", labelStyle);
-        Handles.Label(new Vector3(0, 0, -10), "WallBottom_Closed / Open", labelStyle);
-        Handles.Label(new Vector3(-10, 0, 0), "WallLeft_Closed / Open", labelStyle);
-        Handles.Label(new Vector3(10, 0, 0), "WallRight_Closed / Open", labelStyle);
+        Handles.Label(new Vector3(0, 0, halfBounds), "WallTop_Closed / Open", labelStyle);
+        Handles.Label(new Vector3(0, 0, -halfBounds), "WallBottom_Closed / Open", labelStyle);
+        Handles.Label(new Vector3(-halfBounds, 0, 0), "WallLeft_Closed / Open", labelStyle);
+        Handles.Label(new Vector3(halfBounds, 0, 0), "WallRight_Closed / Open", labelStyle);
 
         // The Ghost Shapes
         Handles.color = Color.yellow;
 
-        if (selectedShapeGuide == RoomShapeGuide.Full20x20)
+        if (selectedShapeGuide == RoomShapeGuide.Full)
         {
-            Handles.DrawWireCube(Vector3.zero, new Vector3(20, 0, 20));
+            Handles.DrawWireCube(Vector3.zero, new Vector3(boundsSize, 0, boundsSize));
         }
-        else if (selectedShapeGuide == RoomShapeGuide.Small10x10)
+        else if (selectedShapeGuide == RoomShapeGuide.Small)
         {
-            Handles.DrawWireCube(Vector3.zero, new Vector3(10, 0, 10));
+            float smallSize = boundsSize * 0.5f;
+            Handles.DrawWireCube(Vector3.zero, new Vector3(smallSize, 0, smallSize));
             
             // Connecting corridors
-            Handles.DrawWireCube(new Vector3(0, 0, 7.5f), new Vector3(3, 0, 5));
-            Handles.DrawWireCube(new Vector3(0, 0, -7.5f), new Vector3(3, 0, 5));
-            Handles.DrawWireCube(new Vector3(-7.5f, 0, 0), new Vector3(5, 0, 3));
-            Handles.DrawWireCube(new Vector3(7.5f, 0, 0), new Vector3(5, 0, 3));
+            float corridorLength = boundsSize * 0.25f; // Equivalent to 5 on a 20 scale
+            float corridorWidth = boundsSize * 0.15f;  // Equivalent to 3 on a 20 scale
+            float offset = boundsSize * 0.375f;        // Equivalent to 7.5 on a 20 scale
+            
+            Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(-offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+            Handles.DrawWireCube(new Vector3(offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
         }
         else if (selectedShapeGuide == RoomShapeGuide.LShape)
         {
+            float quarterSize = boundsSize * 0.25f; // Equivalent to 5 on a 20 scale
+            float smallSize = boundsSize * 0.5f;    // Equivalent to 10 on a 20 scale
+
             // L-Shape structure using multiple wire cubes
-            Handles.DrawWireCube(new Vector3(-5, 0, 5), new Vector3(10, 0, 10));
-            Handles.DrawWireCube(new Vector3(-5, 0, -5), new Vector3(10, 0, 10));
-            Handles.DrawWireCube(new Vector3(5, 0, -5), new Vector3(10, 0, 10));
+            Handles.DrawWireCube(new Vector3(-quarterSize, 0, quarterSize), new Vector3(smallSize, 0, smallSize));
+            Handles.DrawWireCube(new Vector3(-quarterSize, 0, -quarterSize), new Vector3(smallSize, 0, smallSize));
+            Handles.DrawWireCube(new Vector3(quarterSize, 0, -quarterSize), new Vector3(smallSize, 0, smallSize));
             
             // Connecting corridors
-            Handles.DrawWireCube(new Vector3(0, 0, 7.5f), new Vector3(3, 0, 5));
-            Handles.DrawWireCube(new Vector3(0, 0, -7.5f), new Vector3(3, 0, 5));
-            Handles.DrawWireCube(new Vector3(-7.5f, 0, 0), new Vector3(5, 0, 3));
-            Handles.DrawWireCube(new Vector3(7.5f, 0, 0), new Vector3(5, 0, 3));
+            float corridorLength = boundsSize * 0.25f; // Equivalent to 5 on a 20 scale
+            float corridorWidth = boundsSize * 0.15f;  // Equivalent to 3 on a 20 scale
+            float offset = boundsSize * 0.375f;        // Equivalent to 7.5 on a 20 scale
+            
+            Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(-offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+            Handles.DrawWireCube(new Vector3(offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
         }
 
         // Repaint the scene view to ensure the guides are drawn smoothly without needing to move the mouse

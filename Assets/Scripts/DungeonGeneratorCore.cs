@@ -29,8 +29,8 @@ public enum RoomType
 public enum RoomShapeGuide
 {
     None,
-    Full20x20,
-    Small10x10,
+    Full,
+    Small,
     LShape
 }
 #endregion
