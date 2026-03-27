@@ -1,9 +1,7 @@
-# 1. Ignoruj wszystko (pliki i foldery)
 *
-
-# 2. Odignoruj wszystkie foldery (dzięki temu Git może "wejść" w strukturę katalogów)
 !*/
-
-# 3. Odignoruj całą zawartość Twoich docelowych folderów
-!/DungeonJanitors1/Assets/Editor/**
-!/DungeonJanitors1/Assets/Scripts/**
+!Assets/
+!Assets/Editor/
+!Assets/Editor/**
+!Assets/Scripts/
+!Assets/Scripts/**
