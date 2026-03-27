@@ -9,11 +9,11 @@ public class LevelGeneratorWindow : EditorWindow
     private float roomSpacing = 10f;
     private string seedString = "";
 
-    private GameObject startPrefab;
-    private GameObject standardPrefab;
-    private GameObject evacuationPrefab;
-    private GameObject lootPrefab;
-    private GameObject corridorPrefab;
+    private GameObject entrancePrefab;
+    private GameObject basicPrefab;
+    private GameObject objectivePrefab;
+    private GameObject rewardPrefab;
+    private GameObject connectorPrefab;
 
     private int selectedTab = 0;
     private string[] tabs = { "Generator", "Builder Helper" };
@@ -49,11 +49,11 @@ public class LevelGeneratorWindow : EditorWindow
         roomSpacing = EditorPrefs.GetFloat("ProcGen_RoomSpacing", 10f);
         seedString = EditorPrefs.GetString("ProcGen_SeedString", "");
         
-        startPrefab = LoadPrefab("ProcGen_StartPrefab");
-        standardPrefab = LoadPrefab("ProcGen_StandardPrefab");
-        evacuationPrefab = LoadPrefab("ProcGen_EvacPrefab");
-        lootPrefab = LoadPrefab("ProcGen_LootPrefab");
-        corridorPrefab = LoadPrefab("ProcGen_CorridorPrefab");
+        entrancePrefab = LoadPrefab("ProcGen_StartPrefab");
+        basicPrefab = LoadPrefab("ProcGen_StandardPrefab");
+        objectivePrefab = LoadPrefab("ProcGen_ObjectivePrefab");
+        rewardPrefab = LoadPrefab("ProcGen_RewardPrefab");
+        connectorPrefab = LoadPrefab("ProcGen_ConnectorPrefab");
 
         SceneView.duringSceneGui += OnSceneGUI;
     }
@@ -69,11 +69,11 @@ public class LevelGeneratorWindow : EditorWindow
         EditorPrefs.SetFloat("ProcGen_RoomSpacing", roomSpacing);
         EditorPrefs.SetString("ProcGen_SeedString", seedString);
         
-        SavePrefab("ProcGen_StartPrefab", startPrefab);
-        SavePrefab("ProcGen_StandardPrefab", standardPrefab);
-        SavePrefab("ProcGen_EvacPrefab", evacuationPrefab);
-        SavePrefab("ProcGen_LootPrefab", lootPrefab);
-        SavePrefab("ProcGen_CorridorPrefab", corridorPrefab);
+        SavePrefab("ProcGen_StartPrefab", entrancePrefab);
+        SavePrefab("ProcGen_StandardPrefab", basicPrefab);
+        SavePrefab("ProcGen_ObjectivePrefab", objectivePrefab);
+        SavePrefab("ProcGen_RewardPrefab", rewardPrefab);
+        SavePrefab("ProcGen_ConnectorPrefab", connectorPrefab);
 
         SceneView.duringSceneGui -= OnSceneGUI;
     }
@@ -113,14 +113,16 @@ public class LevelGeneratorWindow : EditorWindow
     private void DrawGeneratorTab()
     {
         GUILayout.Label("Generation Rules", EditorStyles.boldLabel);
-        generationRules.minMainPathLength = EditorGUILayout.IntSlider("Min Main Path", generationRules.minMainPathLength, 3, 50);
-        generationRules.maxMainPathLength = EditorGUILayout.IntSlider("Max Main Path", generationRules.maxMainPathLength, 3, 50);
+        EditorGUILayout.HelpBox("The algorithm builds a Main Path from the Entrance to the Objective. It then branches out to create dead ends for Rewards.", MessageType.Info);
+        
+        generationRules.minMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Min Main Path", "The minimum number of rooms required to reach the Objective from the Entrance."), generationRules.minMainPathLength, 3, 50);
+        generationRules.maxMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Max Main Path", "The maximum number of rooms required to reach the Objective from the Entrance."), generationRules.maxMainPathLength, 3, 50);
         if (generationRules.minMainPathLength > generationRules.maxMainPathLength)
         {
             generationRules.minMainPathLength = generationRules.maxMainPathLength;
         }
-        generationRules.branchingChance = EditorGUILayout.Slider("Branching Chance", generationRules.branchingChance, 0f, 1f);
-        generationRules.maxBranchDepth = EditorGUILayout.IntSlider("Max Branch Depth", generationRules.maxBranchDepth, 1, 10);
+        generationRules.branchingChance = EditorGUILayout.Slider(new GUIContent("Branching Chance", "Probability (0.0 to 1.0) that a basic room on the main path will spawn a side corridor."), generationRules.branchingChance, 0f, 1f);
+        generationRules.maxBranchDepth = EditorGUILayout.IntSlider(new GUIContent("Max Branch Depth", "How many rooms a side corridor can extend before hitting a dead end (where rewards usually spawn)."), generationRules.maxBranchDepth, 1, 10);
 
         EditorGUILayout.Space();
         GUILayout.Label("General Settings", EditorStyles.boldLabel);
@@ -135,11 +137,11 @@ public class LevelGeneratorWindow : EditorWindow
         GUILayout.Label("Room Prefabs & Auditor", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("Assign prefabs below. The Auditor ensures your prefabs have the correct Swap System structure.", MessageType.Info);
         
-        DrawPrefabRow("Start Room", ref startPrefab);
-        DrawPrefabRow("Standard", ref standardPrefab);
-        DrawPrefabRow("Evacuation", ref evacuationPrefab);
-        DrawPrefabRow("Loot", ref lootPrefab);
-        DrawPrefabRow("Corridor", ref corridorPrefab);
+        DrawPrefabRow("Entrance (Start)", ref entrancePrefab);
+        DrawPrefabRow("Basic (Standard)", ref basicPrefab);
+        DrawPrefabRow("Objective (Boss/Exit)", ref objectivePrefab);
+        DrawPrefabRow("Reward (Loot)", ref rewardPrefab);
+        DrawPrefabRow("Connector (Corridor)", ref connectorPrefab);
             
             EditorGUILayout.Space();
             
@@ -237,11 +239,11 @@ public class LevelGeneratorWindow : EditorWindow
             generationRules = this.generationRules,
             roomSpacing = this.roomSpacing,
             seed = this.seedString,
-            startPrefab = this.startPrefab,
-            standardPrefab = this.standardPrefab,
-            evacuationPrefab = this.evacuationPrefab,
-            lootPrefab = this.lootPrefab,
-            corridorPrefab = this.corridorPrefab
+            entrancePrefab = this.entrancePrefab,
+            basicPrefab = this.basicPrefab,
+            objectivePrefab = this.objectivePrefab,
+            rewardPrefab = this.rewardPrefab,
+            connectorPrefab = this.connectorPrefab
         };
 
         core.InstantiateMethod = (prefab) => 

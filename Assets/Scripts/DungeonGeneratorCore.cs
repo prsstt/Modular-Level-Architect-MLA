@@ -19,11 +19,11 @@ public class RoomData
 
 public enum RoomType
 {
-    Start,
-    Standard,
-    Evacuation,
-    Loot,
-    Corridor
+    Entrance,
+    Basic,
+    Objective,
+    Reward,
+    Connector
 }
 
 public enum RoomShapeGuide
@@ -56,11 +56,11 @@ public class DungeonGeneratorCore
     public float roomSpacing = 10f;
     public string seed = "";
  
-    public GameObject startPrefab;
-    public GameObject standardPrefab;
-    public GameObject evacuationPrefab;
-    public GameObject lootPrefab;
-    public GameObject corridorPrefab;
+    public GameObject entrancePrefab;
+    public GameObject basicPrefab;
+    public GameObject objectivePrefab;
+    public GameObject rewardPrefab;
+    public GameObject connectorPrefab;
 
     public Action OnGenerationComplete;
  
@@ -90,22 +90,22 @@ public class DungeonGeneratorCore
  
         List<Vector2Int> deadEnds = FindDeadEnds();
 
-        // Filter candidates for evacuation points based on new rules
-        List<Vector2Int> evacCandidates = new List<Vector2Int>();
+        // Filter candidates for objective points based on new rules
+        List<Vector2Int> objectiveCandidates = new List<Vector2Int>();
         if (_mainPath.Count > 0)
         {
-            evacCandidates.Add(_mainPath.Last());
+            objectiveCandidates.Add(_mainPath.Last());
         }
-        evacCandidates.AddRange(deadEnds.Where(pos => Vector2.Distance(pos, startPosition) >= 5f && !evacCandidates.Contains(pos)));
+        objectiveCandidates.AddRange(deadEnds.Where(pos => Vector2.Distance(pos, startPosition) >= 5f && !objectiveCandidates.Contains(pos)));
 
-        int evacLimit = GetEvacuationLimit();
-        int evacPointsToPlace = Mathf.Min(evacLimit, evacCandidates.Count);
-        List<Vector2Int> placedEvacuations = PlaceEvacuationPoints(deadEnds, evacCandidates, evacPointsToPlace);
+        int objectiveLimit = GetObjectiveLimit();
+        int objectivePointsToPlace = Mathf.Min(objectiveLimit, objectiveCandidates.Count);
+        List<Vector2Int> placedObjectives = PlaceObjectivePoints(deadEnds, objectiveCandidates, objectivePointsToPlace);
 
-        int lootRoomsToPlace = Mathf.FloorToInt(deadEnds.Count * 0.5f); // Place loot in 50% of remaining dead ends.
-        PlaceLootRooms(deadEnds, lootRoomsToPlace);
+        int rewardRoomsToPlace = Mathf.FloorToInt(deadEnds.Count * 0.5f); // Place reward rooms in 50% of remaining dead ends.
+        PlaceRewardRooms(deadEnds, rewardRoomsToPlace);
         
-        ApplyCorridorLogic();
+        ApplyConnectorLogic();
         UpdateConnections();
         VisualizeLevel(isDebugMode);
 
@@ -129,7 +129,7 @@ public class DungeonGeneratorCore
         List<Vector2Int> mainPath = new List<Vector2Int>();
         int mainPathLength = UnityEngine.Random.Range(generationRules.minMainPathLength, generationRules.maxMainPathLength + 1);
         
-        rooms.Add(startPosition, new RoomData { Position = startPosition, Type = RoomType.Start });
+        rooms.Add(startPosition, new RoomData { Position = startPosition, Type = RoomType.Entrance });
         mainPath.Add(startPosition);
         
         Vector2Int currentPos = startPosition;
@@ -160,7 +160,7 @@ public class DungeonGeneratorCore
 
             currentPos = nextPos;
             lastDir = dir;
-            rooms.Add(currentPos, new RoomData { Position = currentPos, Type = RoomType.Standard });
+            rooms.Add(currentPos, new RoomData { Position = currentPos, Type = RoomType.Basic });
             mainPath.Add(currentPos);
         }
 
@@ -187,7 +187,7 @@ public class DungeonGeneratorCore
                     branchCurrentPos += dir;
                     if (branchCurrentPos.x >= 0 && branchCurrentPos.x < 20 && branchCurrentPos.y >= 0 && branchCurrentPos.y < 20)
                     {
-                        rooms.Add(branchCurrentPos, new RoomData { Position = branchCurrentPos, Type = RoomType.Standard });
+                        rooms.Add(branchCurrentPos, new RoomData { Position = branchCurrentPos, Type = RoomType.Basic });
                     }
                     else
                     {
@@ -219,7 +219,7 @@ public class DungeonGeneratorCore
         return potentialDeadEnds;
     }
 
-    private int GetEvacuationLimit()
+    private int GetObjectiveLimit()
     {
         int totalRooms = rooms.Count;
         if (totalRooms >= 25) return 4;
@@ -229,7 +229,7 @@ public class DungeonGeneratorCore
         return 0;
     }
 
-    private List<Vector2Int> PlaceEvacuationPoints(List<Vector2Int> allDeadEnds, List<Vector2Int> candidates, int amountToPlace)
+    private List<Vector2Int> PlaceObjectivePoints(List<Vector2Int> allDeadEnds, List<Vector2Int> candidates, int amountToPlace)
     {
         List<Vector2Int> placed = new List<Vector2Int>();
         for (int i = 0; i < amountToPlace && candidates.Count > 0; i++)
@@ -240,9 +240,9 @@ public class DungeonGeneratorCore
             foreach (Vector2Int candidate in candidates)
             {
                 float minDistance = Vector2.Distance(candidate, startPosition);
-                foreach (Vector2Int evac in placed)
+                foreach (Vector2Int obj in placed)
                 {
-                    float dist = Vector2.Distance(candidate, evac);
+                    float dist = Vector2.Distance(candidate, obj);
                     if (dist < minDistance) minDistance = dist;
                 }
 
@@ -255,36 +255,36 @@ public class DungeonGeneratorCore
 
             if (rooms.ContainsKey(bestCandidate))
             {
-                rooms[bestCandidate].Type = RoomType.Evacuation;
+                rooms[bestCandidate].Type = RoomType.Objective;
             }
             else
             {
-                rooms.Add(bestCandidate, new RoomData { Position = bestCandidate, Type = RoomType.Evacuation });
+                rooms.Add(bestCandidate, new RoomData { Position = bestCandidate, Type = RoomType.Objective });
             }
             placed.Add(bestCandidate);
             candidates.Remove(bestCandidate);
-            allDeadEnds.Remove(bestCandidate); // Remove from main dead ends list so it's not used for loot
+            allDeadEnds.Remove(bestCandidate); // Remove from main dead ends list so it's not used for reward rooms
         }
         return placed;
     }
 
-    private void PlaceLootRooms(List<Vector2Int> availableDeadEnds, int limit)
+    private void PlaceRewardRooms(List<Vector2Int> availableDeadEnds, int limit)
     {
-        int lootCount = Mathf.Min(limit, availableDeadEnds.Count);
-        for (int i = 0; i < lootCount; i++)
+        int rewardCount = Mathf.Min(limit, availableDeadEnds.Count);
+        for (int i = 0; i < rewardCount; i++)
         {
             int randomIndex = UnityEngine.Random.Range(0, availableDeadEnds.Count);
             Vector2Int chosenPos = availableDeadEnds[randomIndex];
             
             availableDeadEnds.RemoveAt(randomIndex);
-            rooms.Add(chosenPos, new RoomData { Position = chosenPos, Type = RoomType.Loot });
+            rooms.Add(chosenPos, new RoomData { Position = chosenPos, Type = RoomType.Reward });
         }
     }
 
-    private void ApplyCorridorLogic()
+    private void ApplyConnectorLogic()
     {
-        List<RoomData> standardRooms = rooms.Values.Where(r => r.Type == RoomType.Standard).ToList();
-        foreach (RoomData room in standardRooms)
+        List<RoomData> basicRooms = rooms.Values.Where(r => r.Type == RoomType.Basic).ToList();
+        foreach (RoomData room in basicRooms)
         {
             bool horizontalMatch = rooms.ContainsKey(room.Position + Vector2Int.left) && 
                                    rooms.ContainsKey(room.Position + Vector2Int.right);
@@ -293,7 +293,7 @@ public class DungeonGeneratorCore
 
             if ((horizontalMatch || verticalMatch) && UnityEngine.Random.value < 0.5f)
             {
-                room.Type = RoomType.Corridor;
+                room.Type = RoomType.Connector;
             }
         }
     }
@@ -320,11 +320,11 @@ public class DungeonGeneratorCore
             {
                 switch (room.Type)
                 {
-                    case RoomType.Start: prefabToInstantiate = startPrefab; break;
-                    case RoomType.Standard: prefabToInstantiate = standardPrefab; break;
-                    case RoomType.Evacuation: prefabToInstantiate = evacuationPrefab; break;
-                    case RoomType.Loot: prefabToInstantiate = lootPrefab; break;
-                    case RoomType.Corridor: prefabToInstantiate = corridorPrefab; break;
+                    case RoomType.Entrance: prefabToInstantiate = entrancePrefab; break;
+                    case RoomType.Basic: prefabToInstantiate = basicPrefab; break;
+                    case RoomType.Objective: prefabToInstantiate = objectivePrefab; break;
+                    case RoomType.Reward: prefabToInstantiate = rewardPrefab; break;
+                    case RoomType.Connector: prefabToInstantiate = connectorPrefab; break;
                 }
             }
             
@@ -377,11 +377,11 @@ public class DungeonGeneratorCore
                 Renderer rnd = roomInstance.GetComponent<Renderer>();
                 Material mat = new Material(rnd.sharedMaterial);
                 
-                if (room.Type == RoomType.Start) mat.color = Color.blue;
-                else if (room.Type == RoomType.Standard) mat.color = Color.green;
-                else if (room.Type == RoomType.Evacuation) mat.color = Color.red;
-                else if (room.Type == RoomType.Loot) mat.color = Color.yellow;
-                else if (room.Type == RoomType.Corridor) mat.color = Color.gray;
+                if (room.Type == RoomType.Entrance) mat.color = Color.blue;
+                else if (room.Type == RoomType.Basic) mat.color = Color.green;
+                else if (room.Type == RoomType.Objective) mat.color = Color.red;
+                else if (room.Type == RoomType.Reward) mat.color = Color.yellow;
+                else if (room.Type == RoomType.Connector) mat.color = Color.gray;
                 
                 rnd.material = mat;
             }
