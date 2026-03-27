@@ -34,7 +34,17 @@ public enum RoomShapeGuide
     LShape
 }
 #endregion
-
+ 
+[System.Serializable]
+public class DungeonGenerationRules
+{
+    public int minMainPathLength = 8;
+    public int maxMainPathLength = 12;
+    [Range(0f, 1f)]
+    public float branchingChance = 0.3f;
+    public int maxBranchDepth = 3;
+}
+ 
 #region Core Generation Logic
 /// <summary>
 /// Standalone procedural generation logic. 
@@ -42,10 +52,10 @@ public enum RoomShapeGuide
 /// </summary>
 public class DungeonGeneratorCore
 {
-    public int roomCount = 15;
+    public DungeonGenerationRules generationRules = new DungeonGenerationRules();
     public float roomSpacing = 10f;
     public string seed = "";
-
+ 
     public GameObject startPrefab;
     public GameObject standardPrefab;
     public GameObject evacuationPrefab;
@@ -53,16 +63,19 @@ public class DungeonGeneratorCore
     public GameObject corridorPrefab;
 
     public Action OnGenerationComplete;
-    
+ 
     // Delegate to allow the Editor to override instantiation with PrefabUtility
     public Func<GameObject, GameObject> InstantiateMethod;
 
     private Dictionary<Vector2Int, RoomData> rooms = new Dictionary<Vector2Int, RoomData>();
     private readonly Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
     private readonly Vector2Int startPosition = new Vector2Int(10, -1);
+    private List<Vector2Int> _mainPath;
 
     public void Generate(bool isDebugMode = false)
     {
+        ClearLevel();
+        
         // Seed initialization for determinism
         if (string.IsNullOrEmpty(seed))
         {
@@ -70,20 +83,27 @@ public class DungeonGeneratorCore
         }
         int seedHash = seed.GetHashCode();
         UnityEngine.Random.InitState(seedHash);
-
+ 
         rooms.Clear();
         
-        GenerateBaseLayout();
-        
+        _mainPath = GenerateDungeonLayout();
+ 
         List<Vector2Int> deadEnds = FindDeadEnds();
-        int maxDeadEndsToUse = Mathf.CeilToInt(roomCount / 3.0f);
-        
+
+        // Filter candidates for evacuation points based on new rules
+        List<Vector2Int> evacCandidates = new List<Vector2Int>();
+        if (_mainPath.Count > 0)
+        {
+            evacCandidates.Add(_mainPath.Last());
+        }
+        evacCandidates.AddRange(deadEnds.Where(pos => Vector2.Distance(pos, startPosition) >= 5f && !evacCandidates.Contains(pos)));
+
         int evacLimit = GetEvacuationLimit();
-        int evacPointsToPlace = Mathf.Min(evacLimit, deadEnds.Count, maxDeadEndsToUse);
-        List<Vector2Int> placedEvacuations = PlaceEvacuationPoints(deadEnds, evacPointsToPlace);
-        
-        int remainingDeadEnds = maxDeadEndsToUse - placedEvacuations.Count;
-        PlaceLootRooms(deadEnds, remainingDeadEnds);
+        int evacPointsToPlace = Mathf.Min(evacLimit, evacCandidates.Count);
+        List<Vector2Int> placedEvacuations = PlaceEvacuationPoints(deadEnds, evacCandidates, evacPointsToPlace);
+
+        int lootRoomsToPlace = Mathf.FloorToInt(deadEnds.Count * 0.5f); // Place loot in 50% of remaining dead ends.
+        PlaceLootRooms(deadEnds, lootRoomsToPlace);
         
         ApplyCorridorLogic();
         UpdateConnections();
@@ -94,40 +114,89 @@ public class DungeonGeneratorCore
 
     public void ClearLevel()
     {
-        GameObject existingRoot = GameObject.Find("GeneratedProceduralLevel");
-        if (existingRoot != null)
+        GameObject existingLevel = GameObject.Find("GeneratedProceduralLevel");
+        if (existingLevel != null)
         {
             if (Application.isPlaying)
-                UnityEngine.Object.Destroy(existingRoot);
+                UnityEngine.Object.Destroy(existingLevel);
             else
-                UnityEngine.Object.DestroyImmediate(existingRoot);
+                UnityEngine.Object.DestroyImmediate(existingLevel);
         }
     }
 
-    private void GenerateBaseLayout()
+    private List<Vector2Int> GenerateDungeonLayout()
     {
-        rooms.Add(startPosition, new RoomData { Position = startPosition, Type = RoomType.Start });
-
-        Vector2Int currentPos = startPosition;
-        int generatedCount = 0;
-        int safetyNet = 0; 
+        List<Vector2Int> mainPath = new List<Vector2Int>();
+        int mainPathLength = UnityEngine.Random.Range(generationRules.minMainPathLength, generationRules.maxMainPathLength + 1);
         
-        while (generatedCount < roomCount && safetyNet < 10000)
-        {
-            safetyNet++;
-            Vector2Int dir = directions[UnityEngine.Random.Range(0, directions.Length)];
-            Vector2Int nextPos = currentPos + dir;
+        rooms.Add(startPosition, new RoomData { Position = startPosition, Type = RoomType.Start });
+        mainPath.Add(startPosition);
+        
+        Vector2Int currentPos = startPosition;
+        Vector2Int lastDir = Vector2Int.zero;
 
-            if (nextPos.x >= 0 && nextPos.x < 20 && nextPos.y >= 0 && nextPos.y < 20)
+        // 1. Main Path Generation
+        for (int i = 0; i < mainPathLength - 1; i++)
+        {
+            int safetyNet = 0;
+            Vector2Int nextPos = new Vector2Int(-1, -1);
+            Vector2Int dir = Vector2Int.zero;
+            do
             {
-                currentPos = nextPos;
-                if (!rooms.ContainsKey(currentPos))
+                safetyNet++;
+                if (safetyNet > 100) {
+                    Debug.LogWarning("Main path generation got stuck. Breaking loop.");
+                    goto BranchGeneration; // Exit the main path loop if stuck
+                }
+                dir = directions[UnityEngine.Random.Range(0, directions.Length)];
+                // Try not to go back immediately, adds a bit of forward momentum
+                if (dir == -lastDir && mainPath.Count > 1)
                 {
-                    rooms.Add(currentPos, new RoomData { Position = currentPos, Type = RoomType.Standard });
-                    generatedCount++;
+                    nextPos = new Vector2Int(-1, -1); // Invalid position to ensure the loop continues
+                    continue; 
+                }
+                nextPos = currentPos + dir;
+            } while (rooms.ContainsKey(nextPos) || nextPos.x < 0 || nextPos.x >= 20 || nextPos.y < 0 || nextPos.y >= 20);
+
+            currentPos = nextPos;
+            lastDir = dir;
+            rooms.Add(currentPos, new RoomData { Position = currentPos, Type = RoomType.Standard });
+            mainPath.Add(currentPos);
+        }
+
+    BranchGeneration:
+        // 2. Branch Generation
+        List<Vector2Int> mainPathCopy = new List<Vector2Int>(mainPath); // Iterate over a copy
+        foreach (Vector2Int roomPos in mainPathCopy)
+        {
+            // Don't branch from start or end of main path
+            if (roomPos == startPosition || roomPos == mainPath.Last()) continue;
+
+            if (UnityEngine.Random.value < generationRules.branchingChance)
+            {
+                Vector2Int branchCurrentPos = roomPos;
+                int branchLength = UnityEngine.Random.Range(1, generationRules.maxBranchDepth + 1);
+                
+                for (int i = 0; i < branchLength; i++)
+                {
+                    // Find a valid neighbor to branch into
+                    List<Vector2Int> validDirections = directions.Where(d => !rooms.ContainsKey(branchCurrentPos + d)).ToList();
+                    if (validDirections.Count == 0) break; // No place to branch
+
+                    Vector2Int dir = validDirections[UnityEngine.Random.Range(0, validDirections.Count)];
+                    branchCurrentPos += dir;
+                    if (branchCurrentPos.x >= 0 && branchCurrentPos.x < 20 && branchCurrentPos.y >= 0 && branchCurrentPos.y < 20)
+                    {
+                        rooms.Add(branchCurrentPos, new RoomData { Position = branchCurrentPos, Type = RoomType.Standard });
+                    }
+                    else
+                    {
+                        break; // Hit grid boundary
+                    }
                 }
             }
         }
+        return mainPath;
     }
 
     private List<Vector2Int> FindDeadEnds()
@@ -152,22 +221,23 @@ public class DungeonGeneratorCore
 
     private int GetEvacuationLimit()
     {
-        if (roomCount >= 15) return 4;
-        if (roomCount >= 10) return 3;
-        if (roomCount >= 8) return 2;
-        if (roomCount >= 6) return 1;
+        int totalRooms = rooms.Count;
+        if (totalRooms >= 25) return 4;
+        if (totalRooms >= 18) return 3;
+        if (totalRooms >= 12) return 2;
+        if (totalRooms >= 8) return 1;
         return 0;
     }
 
-    private List<Vector2Int> PlaceEvacuationPoints(List<Vector2Int> availableDeadEnds, int amountToPlace)
+    private List<Vector2Int> PlaceEvacuationPoints(List<Vector2Int> allDeadEnds, List<Vector2Int> candidates, int amountToPlace)
     {
         List<Vector2Int> placed = new List<Vector2Int>();
-        for (int i = 0; i < amountToPlace; i++)
+        for (int i = 0; i < amountToPlace && candidates.Count > 0; i++)
         {
             Vector2Int bestCandidate = Vector2Int.zero;
             float maxMinDistance = -1f;
 
-            foreach (Vector2Int candidate in availableDeadEnds)
+            foreach (Vector2Int candidate in candidates)
             {
                 float minDistance = Vector2.Distance(candidate, startPosition);
                 foreach (Vector2Int evac in placed)
@@ -183,9 +253,17 @@ public class DungeonGeneratorCore
                 }
             }
 
+            if (rooms.ContainsKey(bestCandidate))
+            {
+                rooms[bestCandidate].Type = RoomType.Evacuation;
+            }
+            else
+            {
+                rooms.Add(bestCandidate, new RoomData { Position = bestCandidate, Type = RoomType.Evacuation });
+            }
             placed.Add(bestCandidate);
-            availableDeadEnds.Remove(bestCandidate);
-            rooms.Add(bestCandidate, new RoomData { Position = bestCandidate, Type = RoomType.Evacuation });
+            candidates.Remove(bestCandidate);
+            allDeadEnds.Remove(bestCandidate); // Remove from main dead ends list so it's not used for loot
         }
         return placed;
     }
@@ -233,7 +311,6 @@ public class DungeonGeneratorCore
 
     private void VisualizeLevel(bool isDebug = false)
     {
-        ClearLevel();
         GameObject root = new GameObject("GeneratedProceduralLevel");
 
         foreach (RoomData room in rooms.Values)

@@ -2,10 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
+[System.Serializable]
 public class LevelGeneratorWindow : EditorWindow
 {
-    private int roomCount = 15;
-    private float roomSpacing = 10f; // Size of a single room to offset them properly
+    private DungeonGenerationRules generationRules = new DungeonGenerationRules();
+    private float roomSpacing = 10f;
     private string seedString = "";
 
     private GameObject startPrefab;
@@ -39,7 +40,12 @@ public class LevelGeneratorWindow : EditorWindow
 
     private void OnEnable()
     {
-        roomCount = EditorPrefs.GetInt("ProcGen_RoomCount", 15);
+        // Load Generation Rules
+        generationRules.minMainPathLength = EditorPrefs.GetInt("ProcGen_MinMainPath", 8);
+        generationRules.maxMainPathLength = EditorPrefs.GetInt("ProcGen_MaxMainPath", 12);
+        generationRules.branchingChance = EditorPrefs.GetFloat("ProcGen_BranchChance", 0.3f);
+        generationRules.maxBranchDepth = EditorPrefs.GetInt("ProcGen_MaxBranchDepth", 3);
+
         roomSpacing = EditorPrefs.GetFloat("ProcGen_RoomSpacing", 10f);
         seedString = EditorPrefs.GetString("ProcGen_SeedString", "");
         
@@ -54,7 +60,12 @@ public class LevelGeneratorWindow : EditorWindow
 
     private void OnDisable()
     {
-        EditorPrefs.SetInt("ProcGen_RoomCount", roomCount);
+        // Save Generation Rules
+        EditorPrefs.SetInt("ProcGen_MinMainPath", generationRules.minMainPathLength);
+        EditorPrefs.SetInt("ProcGen_MaxMainPath", generationRules.maxMainPathLength);
+        EditorPrefs.SetFloat("ProcGen_BranchChance", generationRules.branchingChance);
+        EditorPrefs.SetInt("ProcGen_MaxBranchDepth", generationRules.maxBranchDepth);
+
         EditorPrefs.SetFloat("ProcGen_RoomSpacing", roomSpacing);
         EditorPrefs.SetString("ProcGen_SeedString", seedString);
         
@@ -101,12 +112,21 @@ public class LevelGeneratorWindow : EditorWindow
 
     private void DrawGeneratorTab()
     {
-            GUILayout.Label("Generator Settings", EditorStyles.boldLabel);
-            
-            roomCount = EditorGUILayout.IntSlider("Room Count", roomCount, 5, 100);
-            roomSpacing = EditorGUILayout.FloatField("Room Spacing", roomSpacing);
-            
-            EditorGUILayout.Space();
+        GUILayout.Label("Generation Rules", EditorStyles.boldLabel);
+        generationRules.minMainPathLength = EditorGUILayout.IntSlider("Min Main Path", generationRules.minMainPathLength, 3, 50);
+        generationRules.maxMainPathLength = EditorGUILayout.IntSlider("Max Main Path", generationRules.maxMainPathLength, 3, 50);
+        if (generationRules.minMainPathLength > generationRules.maxMainPathLength)
+        {
+            generationRules.minMainPathLength = generationRules.maxMainPathLength;
+        }
+        generationRules.branchingChance = EditorGUILayout.Slider("Branching Chance", generationRules.branchingChance, 0f, 1f);
+        generationRules.maxBranchDepth = EditorGUILayout.IntSlider("Max Branch Depth", generationRules.maxBranchDepth, 1, 10);
+
+        EditorGUILayout.Space();
+        GUILayout.Label("General Settings", EditorStyles.boldLabel);
+        roomSpacing = EditorGUILayout.FloatField("Room Spacing", roomSpacing);
+
+        EditorGUILayout.Space();
         GUILayout.Label("Seed Settings", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("Leave seed empty to generate a random one.", MessageType.Info);
         seedString = EditorGUILayout.TextField("Generation Seed", seedString);
@@ -214,7 +234,7 @@ public class LevelGeneratorWindow : EditorWindow
     {
         DungeonGeneratorCore core = new DungeonGeneratorCore
         {
-            roomCount = this.roomCount,
+            generationRules = this.generationRules,
             roomSpacing = this.roomSpacing,
             seed = this.seedString,
             startPrefab = this.startPrefab,
