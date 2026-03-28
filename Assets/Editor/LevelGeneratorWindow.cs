@@ -325,41 +325,119 @@ public class LevelGeneratorWindow : EditorWindow
             return;
         }
 
-        // Setup Undo Group so all cubes are reverted with one single Ctrl+Z
-        Undo.IncrementCurrentGroup();
-        Undo.SetCurrentGroupName("Generate Tiled Floor");
-        int undoGroup = Undo.GetCurrentGroup();
-        
-        GameObject root = new GameObject("Tiled_Floor_Root");
-        root.transform.SetParent(selected.transform, false);
-        root.transform.localPosition = Vector3.zero;
-        
-        Undo.RegisterCreatedObjectUndo(root, "Generate Tiled Floor");
+        GameObject floor = new GameObject("Auto_Floor_Blockout");
+        Undo.RegisterCreatedObjectUndo(floor, "Generate Auto-Floor");
 
-        float offset = (roomSpacing - 1) / 2f;
+        // --- Add Components ---
+        MeshFilter meshFilter = floor.AddComponent<MeshFilter>();
+        MeshRenderer meshRenderer = floor.AddComponent<MeshRenderer>();
+        floor.AddComponent<BoxCollider>(); // Collider will auto-size to the mesh bounds
 
-        for (int x = 0; x < roomSpacing; x++)
+        // --- Create the Mesh ---
+        Mesh mesh = new Mesh();
+        mesh.name = "Procedural_Floor_Mesh";
+
+        // --- Define Dimensions ---
+        float width = roomSpacing;
+        float depth = roomSpacing;
+        float thickness = 0.5f;
+        float yTop = 0;
+        float yBottom = -thickness;
+
+        float halfWidth = width / 2f;
+        float halfDepth = depth / 2f;
+
+        // --- Vertices (24 total, 4 per face for unique UVs) ---
+        Vector3[] vertices = new Vector3[]
         {
-            for (int z = 0; z < roomSpacing; z++)
-            {
-                GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                block.name = $"FloorBlock_{x}_{z}";
-                block.transform.SetParent(root.transform, false);
-                block.transform.localScale = new Vector3(1f, 0.5f, 1f);
-                block.transform.localPosition = new Vector3(x - offset, -0.25f, z - offset);
+            // Bottom face (Y-)
+            new Vector3(-halfWidth, yBottom, -halfDepth), // 0
+            new Vector3(halfWidth,  yBottom, -halfDepth), // 1
+            new Vector3(halfWidth,  yBottom,  halfDepth), // 2
+            new Vector3(-halfWidth, yBottom,  halfDepth), // 3
 
-                BoxCollider collider = block.GetComponent<BoxCollider>();
-                if (collider != null)
-                {
-                    DestroyImmediate(collider);
-                }
+            // Top face (Y+)
+            new Vector3(-halfWidth, yTop, -halfDepth), // 4
+            new Vector3(halfWidth,  yTop, -halfDepth), // 5
+            new Vector3(halfWidth,  yTop,  halfDepth), // 6
+            new Vector3(-halfWidth, yTop,  halfDepth), // 7
 
-                Undo.RegisterCreatedObjectUndo(block, "Generate Tiled Floor");
-            }
-        }
+            // Front face (Z+)
+            new Vector3(-halfWidth, yBottom,  halfDepth), // 8
+            new Vector3(halfWidth,  yBottom,  halfDepth), // 9
+            new Vector3(halfWidth,  yTop,  halfDepth), // 10
+            new Vector3(-halfWidth, yTop,  halfDepth), // 11
 
-        Undo.CollapseUndoOperations(undoGroup);
-        Debug.Log($"<color=green>Tiled Auto-Floor generated for '{selected.name}'.</color>");
+            // Back face (Z-)
+            new Vector3(halfWidth, yBottom, -halfDepth), // 12
+            new Vector3(-halfWidth, yBottom, -halfDepth), // 13
+            new Vector3(-halfWidth, yTop, -halfDepth), // 14
+            new Vector3(halfWidth,  yTop, -halfDepth), // 15
+
+            // Left face (X-)
+            new Vector3(-halfWidth, yBottom, -halfDepth), // 16
+            new Vector3(-halfWidth, yBottom,  halfDepth), // 17
+            new Vector3(-halfWidth, yTop,  halfDepth), // 18
+            new Vector3(-halfWidth, yTop, -halfDepth), // 19
+
+            // Right face (X+)
+            new Vector3(halfWidth, yBottom,  halfDepth), // 20
+            new Vector3(halfWidth, yBottom, -halfDepth), // 21
+            new Vector3(halfWidth,  yTop, -halfDepth), // 22
+            new Vector3(halfWidth,  yTop,  halfDepth)  // 23
+        };
+        mesh.vertices = vertices;
+
+        // --- Triangles (12 triangles, 36 indices with correct winding order) ---
+        int[] triangles = new int[]
+        {
+            // Bottom
+            0, 2, 1,   0, 3, 2,
+            // Top
+            4, 5, 6,   4, 6, 7,
+            // Front
+            8, 9, 10,  8, 10, 11,
+            // Back
+            12, 13, 14, 12, 14, 15,
+            // Left
+            16, 17, 18, 16, 18, 19,
+            // Right
+            20, 21, 22, 20, 22, 23
+        };
+        mesh.triangles = triangles;
+
+        // --- UVs (one for each vertex) ---
+        Vector2[] uvs = new Vector2[vertices.Length];
+        // Top face UVs for perfect 1-unit tiling
+        uvs[4] = new Vector2(0, 0);
+        uvs[5] = new Vector2(roomSpacing, 0);
+        uvs[6] = new Vector2(roomSpacing, roomSpacing);
+        uvs[7] = new Vector2(0, roomSpacing);
+        
+        // Other faces can have simple 0-1 UVs
+        uvs[0] = new Vector2(0, 0); uvs[1] = new Vector2(1, 0); uvs[2] = new Vector2(1, 1); uvs[3] = new Vector2(0, 1); // Bottom
+        uvs[8] = new Vector2(0, 0); uvs[9] = new Vector2(1, 0); uvs[10] = new Vector2(1, 1); uvs[11] = new Vector2(0, 1); // Front
+        uvs[12] = new Vector2(0, 0); uvs[13] = new Vector2(1, 0); uvs[14] = new Vector2(1, 1); uvs[15] = new Vector2(0, 1); // Back
+        uvs[16] = new Vector2(0, 0); uvs[17] = new Vector2(1, 0); uvs[18] = new Vector2(1, 1); uvs[19] = new Vector2(0, 1); // Left
+        uvs[20] = new Vector2(0, 0); uvs[21] = new Vector2(1, 0); uvs[22] = new Vector2(1, 1); uvs[23] = new Vector2(0, 1); // Right
+        mesh.uv = uvs;
+
+        // --- Finalize Mesh ---
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        meshFilter.mesh = mesh;
+
+        // --- Material ---
+        Material floorMaterial = new Material(Shader.Find("Standard"));
+        meshRenderer.sharedMaterial = floorMaterial;
+
+        // --- Positioning and Scale ---
+        floor.transform.SetParent(selected.transform, false);
+        floor.transform.localPosition = Vector3.zero;
+        floor.transform.localRotation = Quaternion.identity;
+        floor.transform.localScale = Vector3.one;
+
+        Debug.Log($"<color=green>Procedural Auto-Floor generated for '{selected.name}'.</color>");
     }
 
     private void SnapInternalGeometry()
