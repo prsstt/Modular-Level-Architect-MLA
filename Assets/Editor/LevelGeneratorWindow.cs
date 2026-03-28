@@ -115,23 +115,23 @@ public class LevelGeneratorWindow : EditorWindow
         GUILayout.Label("Generation Rules", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("The algorithm builds a Main Path from the Entrance to the Objective. It then branches out to create dead ends for Rewards.", MessageType.Info);
         
-        generationRules.minMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Min Main Path", "The minimum number of rooms required to reach the Objective from the Entrance."), generationRules.minMainPathLength, 3, 50);
-        generationRules.maxMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Max Main Path", "The maximum number of rooms required to reach the Objective from the Entrance."), generationRules.maxMainPathLength, 3, 50);
+        generationRules.minMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Min Main Path", "Guarantees a baseline length for the level."), generationRules.minMainPathLength, 3, 50);
+        generationRules.maxMainPathLength = EditorGUILayout.IntSlider(new GUIContent("Max Main Path", "Sets a hard limit on the level's maximum length."), generationRules.maxMainPathLength, 3, 50);
         if (generationRules.minMainPathLength > generationRules.maxMainPathLength)
         {
             generationRules.minMainPathLength = generationRules.maxMainPathLength;
         }
-        generationRules.branchingChance = EditorGUILayout.Slider(new GUIContent("Branching Chance", "Probability (0.0 to 1.0) that a basic room on the main path will spawn a side corridor."), generationRules.branchingChance, 0f, 1f);
-        generationRules.maxBranchDepth = EditorGUILayout.IntSlider(new GUIContent("Max Branch Depth", "How many rooms a side corridor can extend before hitting a dead end (where rewards usually spawn)."), generationRules.maxBranchDepth, 1, 10);
+        generationRules.branchingChance = EditorGUILayout.Slider(new GUIContent("Branching Chance", "Controls how often side paths appear."), generationRules.branchingChance, 0f, 1f);
+        generationRules.maxBranchDepth = EditorGUILayout.IntSlider(new GUIContent("Max Branch Depth", "Limits how long dead-end paths can be."), generationRules.maxBranchDepth, 1, 10);
 
         EditorGUILayout.Space();
         GUILayout.Label("General Settings", EditorStyles.boldLabel);
-        roomSpacing = EditorGUILayout.FloatField("Room Spacing", roomSpacing);
+        roomSpacing = EditorGUILayout.FloatField(new GUIContent("Room Spacing", "Distance between the centers of adjacent rooms on the grid."), roomSpacing);
 
         EditorGUILayout.Space();
         GUILayout.Label("Seed Settings", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("Leave seed empty to generate a random one.", MessageType.Info);
-        seedString = EditorGUILayout.TextField("Generation Seed", seedString);
+        seedString = EditorGUILayout.TextField(new GUIContent("Generation Seed", "Value used to initialize the random generator. The same seed always produces the exact same level."), seedString);
 
         EditorGUILayout.Space();
         GUILayout.Label("Room Prefabs & Auditor", EditorStyles.boldLabel);
@@ -146,19 +146,19 @@ public class LevelGeneratorWindow : EditorWindow
             EditorGUILayout.Space();
             
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Generate Level", GUILayout.Height(40)))
+            if (GUILayout.Button(new GUIContent("Generate Level", "Spawns the level in the scene using the assigned prefabs."), GUILayout.Height(40)))
             {
             RunGeneration(false);
             }
             
-            if (GUILayout.Button("Clear Level", GUILayout.Height(40)))
+            if (GUILayout.Button(new GUIContent("Clear Level", "Removes the currently generated level from the scene."), GUILayout.Height(40)))
             {
             new DungeonGeneratorCore().ClearLevel();
             Debug.Log("<color=yellow>Level cleared from the scene.</color>");
             }
             GUILayout.EndHorizontal();
 
-            if (GUILayout.Button("Debug Generate (Cubes)", GUILayout.Height(40)))
+            if (GUILayout.Button(new GUIContent("Debug Generate (Cubes)", "Spawns the level layout using primitive colored cubes instead of real prefabs."), GUILayout.Height(40)))
             {
             RunGeneration(true);
             }
@@ -167,18 +167,18 @@ public class LevelGeneratorWindow : EditorWindow
     private void DrawBuilderHelperTab()
     {
         GUILayout.Label("Room Builder Helper", EditorStyles.boldLabel);
-        selectedShapeGuide = (RoomShapeGuide)EditorGUILayout.EnumPopup("Shape Guide", selectedShapeGuide);
+        selectedShapeGuide = (RoomShapeGuide)EditorGUILayout.EnumPopup(new GUIContent("Shape Guide", "Displays a visual wireframe in the Scene View to help you build and size your room prefabs."), selectedShapeGuide);
         EditorGUILayout.HelpBox("Select a shape guide to display wireframes and labels in the Scene View to assist with prefab creation.", MessageType.Info);
 
         EditorGUILayout.Space();
         GUILayout.Label("Active Tools", EditorStyles.boldLabel);
 
-        if (GUILayout.Button("Create Template Room", GUILayout.Height(30)))
+        if (GUILayout.Button(new GUIContent("Create Template Room", "Creates an empty GameObject setup with the correct child structure for the Auto-Fixer."), GUILayout.Height(30)))
         {
             CreateTemplateRoom();
         }
 
-        if (GUILayout.Button("Snap Selected to Center", GUILayout.Height(30)))
+        if (GUILayout.Button(new GUIContent("Snap Selected to Center", "Moves the selected GameObject to Vector3.zero. Very useful before saving a room as a Prefab."), GUILayout.Height(30)))
         {
             SnapSelectedToCenter();
         }
@@ -268,7 +268,7 @@ public class LevelGeneratorWindow : EditorWindow
     private void DrawPrefabRow(string label, ref GameObject prefabRef)
     {
         GUILayout.BeginHorizontal();
-        prefabRef = (GameObject)EditorGUILayout.ObjectField(label, prefabRef, typeof(GameObject), false);
+        prefabRef = (GameObject)EditorGUILayout.ObjectField(new GUIContent(label, $"Assign the prefab to be instantiated for the {label}."), prefabRef, typeof(GameObject), false);
         
         if (prefabRef != null)
         {
@@ -282,10 +282,12 @@ public class LevelGeneratorWindow : EditorWindow
             else
             {
                 GUI.contentColor = Color.yellow;
-                GUILayout.Label($"Missing {missing.Count}", GUILayout.Width(70));
+                string missingNames = string.Join("\n- ", missing);
+                string missingTooltip = $"Missing {missing.Count} required child objects:\n- {missingNames}\n\nClick 'Auto-Fix' to generate them.";
+                GUILayout.Label(new GUIContent($"Missing {missing.Count}", missingTooltip), GUILayout.Width(70));
                 GUI.contentColor = Color.white;
                 
-                if (GUILayout.Button("Auto-Fix", GUILayout.Width(70)))
+                if (GUILayout.Button(new GUIContent("Auto-Fix", "Automatically creates the missing empty child GameObjects inside this prefab and saves it."), GUILayout.Width(70)))
                 {
                     AutoFixPrefab(prefabRef, missing);
                 }
