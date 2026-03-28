@@ -31,7 +31,10 @@ public enum RoomShapeGuide
     None,
     Full,
     Small,
-    LShape
+    LShape,
+    TShape,
+    CrossShape,
+    Corridor
 }
 #endregion
  

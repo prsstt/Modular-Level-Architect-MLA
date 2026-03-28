@@ -182,6 +182,62 @@ public class LevelGeneratorWindow : EditorWindow
         {
             SnapSelectedToCenter();
         }
+
+        EditorGUILayout.Space();
+        GUILayout.Label("Live Door Tester", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Select a room on the scene to instantly test door configurations.", MessageType.Info);
+
+        // Disable buttons if nothing is selected
+        EditorGUI.BeginDisabledGroup(Selection.activeGameObject == null);
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Open All", GUILayout.Height(25)))
+        {
+            SetDoorState("Top", true); SetDoorState("Bottom", true); 
+            SetDoorState("Left", true); SetDoorState("Right", true);
+        }
+        if (GUILayout.Button("Close All", GUILayout.Height(25)))
+        {
+            SetDoorState("Top", false); SetDoorState("Bottom", false); 
+            SetDoorState("Left", false); SetDoorState("Right", false);
+        }
+        GUILayout.EndHorizontal();
+
+        EditorGUILayout.Space();
+
+        // 3x3 Grid for directional toggles
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Toggle Top (N)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Top");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Toggle Left (W)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Left");
+        GUILayout.Space(20); // Center hole
+        if (GUILayout.Button("Toggle Right (E)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Right");
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Toggle Bottom (S)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Bottom");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        EditorGUI.EndDisabledGroup();
+    }
+
+    private void ToggleDoorState(string direction)
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null) return;
+
+        Transform openObj = selected.transform.Find($"Wall{direction}_Open");
+        if (openObj != null)
+        {
+            bool isCurrentlyOpen = openObj.gameObject.activeSelf;
+            SetDoorState(direction, !isCurrentlyOpen);
+        }
     }
 
     private void CreateTemplateRoom()
@@ -230,6 +286,22 @@ public class LevelGeneratorWindow : EditorWindow
         selected.transform.rotation = Quaternion.identity;
         
         Debug.Log($"<color=cyan>Snapped '{selected.name}' to center (Vector3.zero).</color>");
+    }
+
+    private void SetDoorState(string direction, bool isOpen)
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null) return;
+
+        Transform closedObj = selected.transform.Find($"Wall{direction}_Closed");
+        Transform openObj = selected.transform.Find($"Wall{direction}_Open");
+
+        if (closedObj != null && openObj != null)
+        {
+            Undo.RecordObjects(new UnityEngine.Object[] { closedObj.gameObject, openObj.gameObject }, $"Test {direction} Door");
+            closedObj.gameObject.SetActive(!isOpen);
+            openObj.gameObject.SetActive(isOpen);
+        }
     }
 
     private void RunGeneration(bool isDebugMode)
@@ -404,6 +476,51 @@ public class LevelGeneratorWindow : EditorWindow
             Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(corridorWidth, 0, corridorLength));
             Handles.DrawWireCube(new Vector3(-offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
             Handles.DrawWireCube(new Vector3(offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.TShape)
+        {
+            float quarterSize = boundsSize * 0.25f; 
+            float smallSize = boundsSize * 0.5f;    
+
+            Handles.DrawWireCube(new Vector3(0, 0, quarterSize), new Vector3(boundsSize, 0, smallSize)); // Top bar
+            Handles.DrawWireCube(new Vector3(0, 0, -quarterSize), new Vector3(smallSize, 0, smallSize)); // Bottom stem
+            
+            // Connecting corridors
+            float corridorLength = boundsSize * 0.25f;
+            float corridorWidth = boundsSize * 0.15f; 
+            float offset = boundsSize * 0.375f;       
+            
+            Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(-offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+            Handles.DrawWireCube(new Vector3(offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.CrossShape)
+        {
+            float smallSize = boundsSize * 0.5f;
+            Handles.DrawWireCube(Vector3.zero, new Vector3(boundsSize, 0, smallSize)); // Horizontal
+            Handles.DrawWireCube(Vector3.zero, new Vector3(smallSize, 0, boundsSize)); // Vertical
+            
+            // Connecting corridors
+            float corridorLength = boundsSize * 0.25f;
+            float corridorWidth = boundsSize * 0.15f; 
+            float offset = boundsSize * 0.375f;       
+            
+            Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(corridorWidth, 0, corridorLength));
+            Handles.DrawWireCube(new Vector3(-offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+            Handles.DrawWireCube(new Vector3(offset, 0, 0), new Vector3(corridorLength, 0, corridorWidth));
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.Corridor)
+        {
+            float corridorWidth = boundsSize * 0.25f;
+            float corridorLength = boundsSize * 0.25f;
+            float cWidth = boundsSize * 0.15f;
+            float offset = boundsSize * 0.375f;
+
+            Handles.DrawWireCube(Vector3.zero, new Vector3(corridorWidth, 0, boundsSize)); // Long along Z
+            Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(cWidth, 0, corridorLength)); // Top
+            Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(cWidth, 0, corridorLength)); // Bottom
         }
 
         // Repaint the scene view to ensure the guides are drawn smoothly without needing to move the mouse
