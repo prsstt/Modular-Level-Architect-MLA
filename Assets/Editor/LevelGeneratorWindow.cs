@@ -333,6 +333,14 @@ public class LevelGeneratorWindow : EditorWindow
         
         floor.transform.localScale = new Vector3(roomSpacing, 0.5f, roomSpacing);
 
+        MeshRenderer renderer = floor.GetComponent<MeshRenderer>();
+        if (renderer != null)
+        {
+            Material tiledMat = new Material(Shader.Find("Standard"));
+            tiledMat.mainTextureScale = new Vector2(roomSpacing, roomSpacing);
+            renderer.sharedMaterial = tiledMat;
+        }
+
         BoxCollider collider = floor.GetComponent<BoxCollider>();
         if (collider != null)
         {
