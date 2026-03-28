@@ -205,22 +205,30 @@ public class LevelGeneratorWindow : EditorWindow
 
         EditorGUILayout.Space();
 
-        // 3x3 Grid for directional toggles
+        float btnWidth = 110f;
+        float btnHeight = 30f;
+        float centerGap = btnWidth + 10f; // Gap perfectly matching the top/bottom button width + padding
+
+        // NORTH
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Toggle Top (N)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Top");
+        if (GUILayout.Button("Toggle Top", GUILayout.Width(btnWidth), GUILayout.Height(btnHeight))) ToggleDoorState("Top");
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Toggle Left (W)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Left");
-        GUILayout.Space(20); // Center hole
-        if (GUILayout.Button("Toggle Right (E)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Right");
-        GUILayout.EndHorizontal();
-
+        // WEST & EAST
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("Toggle Bottom (S)", GUILayout.Width(120), GUILayout.Height(30))) ToggleDoorState("Bottom");
+        if (GUILayout.Button("Toggle Left", GUILayout.Width(btnWidth), GUILayout.Height(btnHeight))) ToggleDoorState("Left");
+        GUILayout.Space(centerGap); 
+        if (GUILayout.Button("Toggle Right", GUILayout.Width(btnWidth), GUILayout.Height(btnHeight))) ToggleDoorState("Right");
+        GUILayout.FlexibleSpace();
+        GUILayout.EndHorizontal();
+
+        // SOUTH
+        GUILayout.BeginHorizontal();
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("Toggle Bottom", GUILayout.Width(btnWidth), GUILayout.Height(btnHeight))) ToggleDoorState("Bottom");
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
 
