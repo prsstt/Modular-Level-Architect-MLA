@@ -325,30 +325,41 @@ public class LevelGeneratorWindow : EditorWindow
             return;
         }
 
-        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        floor.name = "Auto_Floor_Blockout";
-        floor.transform.SetParent(selected.transform, false);
-        floor.transform.localPosition = new Vector3(0, -0.25f, 0);
-        floor.transform.localRotation = Quaternion.identity;
+        // Setup Undo Group so all cubes are reverted with one single Ctrl+Z
+        Undo.IncrementCurrentGroup();
+        Undo.SetCurrentGroupName("Generate Tiled Floor");
+        int undoGroup = Undo.GetCurrentGroup();
         
-        floor.transform.localScale = new Vector3(roomSpacing, 0.5f, roomSpacing);
+        GameObject root = new GameObject("Tiled_Floor_Root");
+        root.transform.SetParent(selected.transform, false);
+        root.transform.localPosition = Vector3.zero;
+        
+        Undo.RegisterCreatedObjectUndo(root, "Generate Tiled Floor");
 
-        MeshRenderer renderer = floor.GetComponent<MeshRenderer>();
-        if (renderer != null)
+        float offset = (roomSpacing - 1) / 2f;
+
+        for (int x = 0; x < roomSpacing; x++)
         {
-            Material tiledMat = new Material(Shader.Find("Standard"));
-            tiledMat.mainTextureScale = new Vector2(roomSpacing, roomSpacing);
-            renderer.sharedMaterial = tiledMat;
+            for (int z = 0; z < roomSpacing; z++)
+            {
+                GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                block.name = $"FloorBlock_{x}_{z}";
+                block.transform.SetParent(root.transform, false);
+                block.transform.localScale = new Vector3(1f, 0.5f, 1f);
+                block.transform.localPosition = new Vector3(x - offset, -0.25f, z - offset);
+
+                BoxCollider collider = block.GetComponent<BoxCollider>();
+                if (collider != null)
+                {
+                    DestroyImmediate(collider);
+                }
+
+                Undo.RegisterCreatedObjectUndo(block, "Generate Tiled Floor");
+            }
         }
 
-        BoxCollider collider = floor.GetComponent<BoxCollider>();
-        if (collider != null)
-        {
-            DestroyImmediate(collider);
-        }
-
-        Undo.RegisterCreatedObjectUndo(floor, "Generate Auto-Floor");
-        Debug.Log($"<color=green>Auto-Floor generated for '{selected.name}'.</color>");
+        Undo.CollapseUndoOperations(undoGroup);
+        Debug.Log($"<color=green>Tiled Auto-Floor generated for '{selected.name}'.</color>");
     }
 
     private void SnapInternalGeometry()
