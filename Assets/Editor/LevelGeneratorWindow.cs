@@ -183,6 +183,17 @@ public class LevelGeneratorWindow : EditorWindow
             SnapSelectedToCenter();
         }
 
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button(new GUIContent("Generate Auto-Floor", "Creates a Plane scaled perfectly to your room spacing."), GUILayout.Height(30)))
+        {
+            GenerateAutoFloor();
+        }
+        if (GUILayout.Button(new GUIContent("Snap Internal Geometry", "Snaps all child objects to a 0.25 micro-grid."), GUILayout.Height(30)))
+        {
+            SnapInternalGeometry();
+        }
+        GUILayout.EndHorizontal();
+
         EditorGUILayout.Space();
         GUILayout.Label("Live Door Tester", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("Select a room on the scene to instantly test door configurations.", MessageType.Info);
@@ -294,6 +305,57 @@ public class LevelGeneratorWindow : EditorWindow
         selected.transform.rotation = Quaternion.identity;
         
         Debug.Log($"<color=cyan>Snapped '{selected.name}' to center (Vector3.zero).</color>");
+    }
+
+    private void GenerateAutoFloor()
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
+        {
+            Debug.LogWarning("Cannot generate Auto-Floor: No GameObject is currently selected.");
+            return;
+        }
+
+        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        floor.name = "Auto_Floor";
+        floor.transform.SetParent(selected.transform);
+        floor.transform.localPosition = Vector3.zero;
+        floor.transform.localRotation = Quaternion.identity;
+        
+        // A Unity primitive Plane is 10x10 units. Scale it to match roomSpacing.
+        float scale = roomSpacing / 10f;
+        floor.transform.localScale = new Vector3(scale, 1f, scale);
+
+        Undo.RegisterCreatedObjectUndo(floor, "Generate Auto-Floor");
+        Debug.Log($"<color=green>Auto-Floor generated for '{selected.name}'.</color>");
+    }
+
+    private void SnapInternalGeometry()
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
+        {
+            Debug.LogWarning("Cannot snap geometry: No GameObject is currently selected.");
+            return;
+        }
+
+        float snapValue = 0.25f;
+        Transform[] children = selected.GetComponentsInChildren<Transform>(true);
+        
+        Undo.RecordObjects(children, "Snap Internal Geometry");
+
+        foreach (Transform child in children)
+        {
+            if (child == selected.transform) continue; // Skip the parent itself
+            
+            Vector3 pos = child.localPosition;
+            pos.x = Mathf.Round(pos.x / snapValue) * snapValue;
+            pos.y = Mathf.Round(pos.y / snapValue) * snapValue;
+            pos.z = Mathf.Round(pos.z / snapValue) * snapValue;
+            child.localPosition = pos;
+        }
+
+        Debug.Log($"<color=cyan>Snapped child transforms to a {snapValue} micro-grid.</color>");
     }
 
     private void SetDoorState(string direction, bool isOpen)
@@ -529,6 +591,31 @@ public class LevelGeneratorWindow : EditorWindow
             Handles.DrawWireCube(Vector3.zero, new Vector3(corridorWidth, 0, boundsSize)); // Long along Z
             Handles.DrawWireCube(new Vector3(0, 0, offset), new Vector3(cWidth, 0, corridorLength)); // Top
             Handles.DrawWireCube(new Vector3(0, 0, -offset), new Vector3(cWidth, 0, corridorLength)); // Bottom
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.Circle)
+        {
+            Handles.DrawWireDisc(Vector3.zero, Vector3.up, halfBounds);
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.Diamond)
+        {
+            Vector3[] diamondPoints = new Vector3[] {
+                new Vector3(0, 0, halfBounds),
+                new Vector3(halfBounds, 0, 0),
+                new Vector3(0, 0, -halfBounds),
+                new Vector3(-halfBounds, 0, 0),
+                new Vector3(0, 0, halfBounds)
+            };
+            Handles.DrawPolyLine(diamondPoints);
+        }
+        else if (selectedShapeGuide == RoomShapeGuide.Hexagon)
+        {
+            Vector3[] hexPoints = new Vector3[7];
+            for (int i = 0; i <= 6; i++)
+            {
+                float angle = i * 60f * Mathf.Deg2Rad;
+                hexPoints[i] = new Vector3(Mathf.Sin(angle) * halfBounds, 0, Mathf.Cos(angle) * halfBounds);
+            }
+            Handles.DrawPolyLine(hexPoints);
         }
 
         // Repaint the scene view to ensure the guides are drawn smoothly without needing to move the mouse

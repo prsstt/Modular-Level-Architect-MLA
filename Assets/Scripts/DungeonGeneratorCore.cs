@@ -34,7 +34,10 @@ public enum RoomShapeGuide
     LShape,
     TShape,
     CrossShape,
-    Corridor
+    Corridor,
+    Circle,
+    Diamond,
+    Hexagon
 }
 #endregion
  
