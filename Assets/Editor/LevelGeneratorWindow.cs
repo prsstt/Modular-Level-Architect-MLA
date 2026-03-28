@@ -184,7 +184,7 @@ public class LevelGeneratorWindow : EditorWindow
         }
 
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button(new GUIContent("Generate Auto-Floor", "Creates a Plane scaled perfectly to your room spacing."), GUILayout.Height(30)))
+        if (GUILayout.Button(new GUIContent("Generate Auto-Floor", "Creates a Blockout Cube scaled perfectly to your room spacing."), GUILayout.Height(30)))
         {
             GenerateAutoFloor();
         }
@@ -193,6 +193,15 @@ public class LevelGeneratorWindow : EditorWindow
             SnapInternalGeometry();
         }
         GUILayout.EndHorizontal();
+
+        EditorGUILayout.Space();
+        GUILayout.Label("Export Tools", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Validates the room structure, snaps it to the center, saves it as a Prefab, and cleans up the scene.", MessageType.Info);
+        
+        if (GUILayout.Button("Save Room as Prefab", GUILayout.Height(40)))
+        {
+            ExportRoomToPrefab();
+        }
 
         EditorGUILayout.Space();
         GUILayout.Label("Live Door Tester", EditorStyles.boldLabel);
@@ -316,15 +325,19 @@ public class LevelGeneratorWindow : EditorWindow
             return;
         }
 
-        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        floor.name = "Auto_Floor";
-        floor.transform.SetParent(selected.transform);
-        floor.transform.localPosition = Vector3.zero;
+        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        floor.name = "Auto_Floor_Blockout";
+        floor.transform.SetParent(selected.transform, false);
+        floor.transform.localPosition = new Vector3(0, -0.25f, 0);
         floor.transform.localRotation = Quaternion.identity;
         
-        // A Unity primitive Plane is 10x10 units. Scale it to match roomSpacing.
-        float scale = roomSpacing / 10f;
-        floor.transform.localScale = new Vector3(scale, 1f, scale);
+        floor.transform.localScale = new Vector3(roomSpacing, 0.5f, roomSpacing);
+
+        BoxCollider collider = floor.GetComponent<BoxCollider>();
+        if (collider != null)
+        {
+            DestroyImmediate(collider);
+        }
 
         Undo.RegisterCreatedObjectUndo(floor, "Generate Auto-Floor");
         Debug.Log($"<color=green>Auto-Floor generated for '{selected.name}'.</color>");
@@ -356,6 +369,52 @@ public class LevelGeneratorWindow : EditorWindow
         }
 
         Debug.Log($"<color=cyan>Snapped child transforms to a {snapValue} micro-grid.</color>");
+    }
+
+    private void ExportRoomToPrefab()
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
+        {
+            Debug.LogWarning("Cannot export: No GameObject is currently selected.");
+            return;
+        }
+
+        // Validate structure using the existing Auditor method
+        List<string> missing = GetMissingSwapObjects(selected);
+        if (missing.Count > 0)
+        {
+            string missingNames = string.Join(", ", missing);
+            Debug.LogError($"Cannot export: '{selected.name}' is missing required child objects: {missingNames}. Please fix it before exporting.");
+            return;
+        }
+
+        // Snap to center exactly before saving
+        selected.transform.position = Vector3.zero;
+        selected.transform.rotation = Quaternion.identity;
+
+        // Ensure directories exist
+        if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
+        {
+            AssetDatabase.CreateFolder("Assets", "Prefabs");
+        }
+        if (!AssetDatabase.IsValidFolder("Assets/Prefabs/Rooms"))
+        {
+            AssetDatabase.CreateFolder("Assets/Prefabs", "Rooms");
+        }
+
+        string localPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/Prefabs/Rooms/{selected.name}.prefab");
+        PrefabUtility.SaveAsPrefabAsset(selected, localPath, out bool success);
+
+        if (success)
+        {
+            Undo.DestroyObjectImmediate(selected);
+            Debug.Log($"<color=green>Successfully exported prefab to {localPath} and cleaned up the scene.</color>");
+        }
+        else
+        {
+            Debug.LogError($"Failed to export prefab for '{selected.name}'.");
+        }
     }
 
     private void SetDoorState(string direction, bool isOpen)
