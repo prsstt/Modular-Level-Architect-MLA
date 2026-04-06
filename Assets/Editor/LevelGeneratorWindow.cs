@@ -477,41 +477,33 @@ public class LevelGeneratorWindow : EditorWindow
             return;
         }
 
+        string safeRoomName = selected.name; // NEW: Cache the name to prevent MissingReferenceException later
+
         // Validate structure using the existing Auditor method
         List<string> missing = GetMissingSwapObjects(selected);
         if (missing.Count > 0)
         {
             string missingNames = string.Join(", ", missing);
-            Debug.LogError($"Cannot export: '{selected.name}' is missing required child objects: {missingNames}. Please fix it before exporting.");
+            Debug.LogError($"Cannot export: '{safeRoomName}' is missing required child objects: {missingNames}. Please fix it before exporting."); // NEW: Use cached name
             return;
         }
 
         // Snap to center exactly before saving
+        Undo.RecordObject(selected.transform, "Snap to Center for Prefab Export");
         selected.transform.position = Vector3.zero;
         selected.transform.rotation = Quaternion.identity;
 
-        // Ensure directories exist
-        if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
-        {
-            AssetDatabase.CreateFolder("Assets", "Prefabs");
-        }
-        if (!AssetDatabase.IsValidFolder("Assets/Prefabs/Rooms"))
-        {
-            AssetDatabase.CreateFolder("Assets/Prefabs", "Rooms");
-        }
+        string targetPath = $"Assets/Prefabs/Rooms/{safeRoomName}.prefab"; // NEW: Use cached name
 
-        string localPath = AssetDatabase.GenerateUniqueAssetPath($"Assets/Prefabs/Rooms/{selected.name}.prefab");
-        PrefabUtility.SaveAsPrefabAsset(selected, localPath, out bool success);
-
-        if (success)
+        // Use the new, safe utility. It handles overwrites and prevents corrupted duplicates.
+        if (PrefabExporterUtility.ExportRoomToPrefab(selected, targetPath))
         {
             Undo.DestroyObjectImmediate(selected);
-            Debug.Log($"<color=green>Successfully exported prefab to {localPath} and cleaned up the scene.</color>");
+            Debug.Log($"<color=green>Successfully exported and cleaned up '{safeRoomName}' from the scene.</color>"); // NEW: Use cached name
         }
-        else
-        {
-            Debug.LogError($"Failed to export prefab for '{selected.name}'.");
-        }
+
+        selected = null; // NEW: Clear the local reference
+        Selection.activeGameObject = null; // NEW: Clear the editor selection so the GUI stops trying to access the dead object
     }
 
     private void SetDoorState(string direction, bool isOpen)
