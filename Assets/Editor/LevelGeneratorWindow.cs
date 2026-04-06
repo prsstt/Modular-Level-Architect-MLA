@@ -210,6 +210,12 @@ public class LevelGeneratorWindow : EditorWindow
         // Disable buttons if nothing is selected
         EditorGUI.BeginDisabledGroup(Selection.activeGameObject == null);
 
+        if (GUILayout.Button("Reset / Enable All Layers", GUILayout.Height(30)))
+        {
+            ResetAllLayers();
+        }
+        EditorGUILayout.Space();
+
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("Open All", GUILayout.Height(25)))
         {
@@ -468,6 +474,51 @@ public class LevelGeneratorWindow : EditorWindow
         Debug.Log($"<color=cyan>Snapped child transforms to a {snapValue} micro-grid.</color>");
     }
 
+    public void ResetAllLayers()
+    {
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
+        {
+            Debug.LogWarning("Cannot reset layers: No GameObject is currently selected.");
+            return;
+        }
+
+        // This list should match the structure created by CreateTemplateRoom and checked by the auditor.
+        string[] structuralChildNames = new string[]
+        {
+            "WallTop_Closed", "WallTop_Open",
+            "WallBottom_Closed", "WallBottom_Open",
+            "WallLeft_Closed", "WallLeft_Open",
+            "WallRight_Closed", "WallRight_Open",
+            "RandomProps"
+        };
+
+        List<GameObject> objectsToRecord = new List<GameObject>();
+        objectsToRecord.Add(selected);
+
+        foreach (string childName in structuralChildNames)
+        {
+            Transform child = selected.transform.Find(childName);
+            if (child != null)
+            {
+                objectsToRecord.Add(child.gameObject);
+            }
+        }
+        
+        Undo.RecordObjects(objectsToRecord.ToArray(), "Reset All Layers");
+
+        foreach (string childName in structuralChildNames)
+        {
+            Transform child = selected.transform.Find(childName);
+            if (child != null)
+            {
+                child.gameObject.SetActive(true);
+            }
+        }
+
+        Debug.Log($"<color=cyan>Reset all structural layers for '{selected.name}'.</color>");
+    }
+
     private void ExportRoomToPrefab()
     {
         GameObject selected = Selection.activeGameObject;
@@ -494,6 +545,8 @@ public class LevelGeneratorWindow : EditorWindow
         selected.transform.rotation = Quaternion.identity;
 
         string targetPath = $"Assets/Prefabs/Rooms/{safeRoomName}.prefab"; // NEW: Use cached name
+
+        ResetAllLayers(); // Ensure all geometry layers are active before saving.
 
         // Use the new, safe utility. It handles overwrites and prevents corrupted duplicates.
         if (PrefabExporterUtility.ExportRoomToPrefab(selected, targetPath))
