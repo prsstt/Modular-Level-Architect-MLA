@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class AutoFloorGenerator : MonoBehaviour
 {
+    #region Mesh Generation
     public void GenerateAutoFloor(float width, float length, Material floorMaterial, float uvScale = 1f)
     {
         // 1. Transform Integrity
@@ -111,4 +112,5 @@ public class AutoFloorGenerator : MonoBehaviour
         proceduralMesh.RecalculateTangents();
         proceduralMesh.RecalculateBounds();
     }
+    #endregion
 }

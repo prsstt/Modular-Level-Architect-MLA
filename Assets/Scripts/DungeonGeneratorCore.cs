@@ -58,6 +58,7 @@ public class DungeonGenerationRules
 /// </summary>
 public class DungeonGeneratorCore
 {
+    #region Fields & Properties
     public DungeonGenerationRules generationRules = new DungeonGenerationRules();
     public float roomSpacing = 10f;
     public string seed = "";
@@ -77,7 +78,9 @@ public class DungeonGeneratorCore
     private readonly Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
     private readonly Vector2Int startPosition = new Vector2Int(10, -1);
     private List<Vector2Int> _mainPath;
+    #endregion
 
+    #region Public Methods
     public void Generate(bool isDebugMode = false)
     {
         ClearLevel();
@@ -129,7 +132,9 @@ public class DungeonGeneratorCore
                 UnityEngine.Object.DestroyImmediate(existingLevel);
         }
     }
+    #endregion
 
+    #region Generator Algorithms
     private List<Vector2Int> GenerateDungeonLayout()
     {
         List<Vector2Int> mainPath = new List<Vector2Int>();
@@ -314,7 +319,9 @@ public class DungeonGeneratorCore
             room.HasRight = rooms.ContainsKey(room.Position + Vector2Int.right);
         }
     }
+    #endregion
 
+    #region Visualization
     private void VisualizeLevel(bool isDebug = false)
     {
         GameObject root = new GameObject("GeneratedProceduralLevel");
@@ -397,5 +404,6 @@ public class DungeonGeneratorCore
             roomInstance.name = $"Room ({room.Position.x}, {room.Position.y}) - {room.Type}";
         }
     }
+    #endregion
 }
 #endregion

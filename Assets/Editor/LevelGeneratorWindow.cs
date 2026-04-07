@@ -5,6 +5,7 @@ using UnityEditor;
 [System.Serializable]
 public class LevelGeneratorWindow : EditorWindow
 {
+    #region Fields & Properties
     private DungeonGenerationRules generationRules = new DungeonGenerationRules();
     private float roomSpacing = 10f;
     private string seedString = "";
@@ -18,7 +19,9 @@ public class LevelGeneratorWindow : EditorWindow
     private int selectedTab = 0;
     private string[] tabs = { "Generator", "Builder Helper" };
     private RoomShapeGuide selectedShapeGuide = RoomShapeGuide.None;
+    #endregion
 
+    #region Unity Lifecycle & Window Management
     [MenuItem("Tools/Modular Level Architect (MLA)")]
     public static void ShowWindow()
     {
@@ -77,7 +80,9 @@ public class LevelGeneratorWindow : EditorWindow
 
         SceneView.duringSceneGui -= OnSceneGUI;
     }
+    #endregion
 
+    #region Preferences & Asset Loading
     private void SavePrefab(string key, GameObject prefab)
     {
         if (prefab == null) { EditorPrefs.DeleteKey(key); return; }
@@ -93,6 +98,7 @@ public class LevelGeneratorWindow : EditorWindow
         string path = AssetDatabase.GUIDToAssetPath(guid);
         return string.IsNullOrEmpty(path) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
     }
+    #endregion
 
 #region Editor UI
     private void OnGUI()
@@ -282,7 +288,9 @@ public class LevelGeneratorWindow : EditorWindow
             SetDoorState(direction, !isCurrentlyOpen);
         }
     }
+    #endregion
 
+    #region Builder Actions & Utilities
     private void CreateTemplateRoom()
     {
         GameObject templateRoom = new GameObject("New_Room_Template");

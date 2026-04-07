@@ -4,6 +4,7 @@ using System.IO;
 
 public class PrefabExporterUtility
 {
+    #region Export Logic
     /// <summary>
     /// Exports a GameObject from the scene to a clean, base Prefab at the specified path.
     /// Safely handles overwrites and prevents prefab corruption or forced unique naming.
@@ -76,4 +77,5 @@ public class PrefabExporterUtility
 
         return success;
     }
+    #endregion
 }
