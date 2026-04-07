@@ -36,13 +36,14 @@ Renders dynamic, non-intrusive wireframe guides in the Scene View to assist with
 - Diamond
 - Hexagon
 
-### Live Door Tester
+### Live Door Tester & Layer Controls
 Provides real-time validation of a room's door/wall configurations. When a room prefab instance is selected in the scene, a compass-aligned UI allows the designer to toggle the active state of each of the four directional wall sets (e.g., `WallTop_Open`/`WallTop_Closed`). This allows for immediate visual feedback on the Swap System setup without needing to run a full level generation. All state changes are registered with the Undo system.
+Additionally, a "Reset / Enable All Layers" utility allows designers to instantly re-enable all structural child objects to their default active state after testing.
 
 ### Procedural Floor Generator
 A one-click tool that generates a floor mesh perfectly sized to the `roomSpacing` dimensions.
-- **Optimized Mesh**: Creates a single, optimized procedural mesh for the floor instead of using scaled primitives.
-- **Automatic UV Tiling**: UV coordinates are programmatically generated to maintain a 1:1 tiling ratio, ensuring that materials tile correctly regardless of the `roomSpacing` value.
+- **Optimized Mesh**: Creates a single, optimized procedural mesh for the floor instead of using scaled primitives. The bottom face is automatically culled for top-down rendering optimization, and mesh data is aggressively cached to prevent memory allocation spikes.
+- **Automatic UV Tiling & Scaling**: UV coordinates are programmatically generated to maintain a strict 1:1 tiling ratio, preventing texture stretching. It supports advanced Normal/Bump maps (tangent recalculation) and includes a `uvScale` parameter for texture density control.
 - **Correct Alignment**: The generated floor has a thickness of 0.5 units and is positioned so its top surface aligns perfectly at Y=0 within the room's local space.
 
 ### Micro-Grid Snapper
@@ -51,12 +52,13 @@ A utility for enforcing geometric precision within a room prefab. It iterates th
 ## Export Workflow
 
 ### 1-Click Prefab Exporter
-Streamlines the process of saving a configured scene object as a production-ready prefab. The "Save Room as Prefab" button executes the following automated pipeline:
+Streamlines the process of saving a configured scene object as a production-ready, clean base prefab. The "Save Room as Prefab" button executes the following automated pipeline:
 1.  **Validation**: Verifies the selected GameObject has the correct Swap System hierarchy. The export is aborted if the structure is invalid.
-2.  **Centering**: Automatically sets the object's position to `Vector3.zero` and its rotation to `Quaternion.identity`.
-3.  **Folder Creation**: Ensures the `Assets/Prefabs/Rooms` directory structure exists, creating it if necessary.
-4.  **Asset Creation**: Saves the object as a new prefab asset at a unique path within `Assets/Prefabs/Rooms/`.
-5.  **Scene Cleanup**: Destroys the original GameObject from the scene upon successful export.
+2.  **Layer Reset**: Automatically forces all structural geometry layers (walls, props) to be active, preventing the accidental export of disabled layers.
+3.  **Centering**: Automatically sets the object's position to `Vector3.zero` and its rotation to `Quaternion.identity`.
+4.  **Folder Creation**: Ensures the `Assets/Prefabs/Rooms` directory structure exists, creating it if necessary.
+5.  **Asset Creation & Overwrite Protection**: Saves the object as a fresh base prefab. If a prefab with the same name already exists, it displays a safety dialog prompting the user to overwrite, preventing the creation of numbered, corrupted duplicates or broken variants.
+6.  **Scene Cleanup**: Safely clears editor references and destroys the original GameObject from the scene upon successful export.
 
 ## Technical Requirements
 
