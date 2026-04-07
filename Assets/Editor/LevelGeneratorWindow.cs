@@ -178,6 +178,9 @@ public class LevelGeneratorWindow : EditorWindow
             CreateTemplateRoom();
         }
 
+        // Disable buttons if no GameObject is selected in the Scene
+        EditorGUI.BeginDisabledGroup(Selection.activeGameObject == null);
+
         if (GUILayout.Button(new GUIContent("Snap Selected to Center", "Moves the selected GameObject to Vector3.zero. Very useful before saving a room as a Prefab."), GUILayout.Height(30)))
         {
             SnapSelectedToCenter();
@@ -194,14 +197,20 @@ public class LevelGeneratorWindow : EditorWindow
         }
         GUILayout.EndHorizontal();
 
+        EditorGUI.EndDisabledGroup();
+
         EditorGUILayout.Space();
         GUILayout.Label("Export Tools", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox("Validates the room structure, snaps it to the center, saves it as a Prefab, and cleans up the scene.", MessageType.Info);
         
+        EditorGUI.BeginDisabledGroup(Selection.activeGameObject == null);
+
         if (GUILayout.Button("Save Room as Prefab", GUILayout.Height(40)))
         {
             ExportRoomToPrefab();
         }
+
+        EditorGUI.EndDisabledGroup();
 
         EditorGUILayout.Space();
         GUILayout.Label("Live Door Tester", EditorStyles.boldLabel);
