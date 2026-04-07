@@ -1,4 +1,4 @@
-# Procedural Level Generator & Builder Suite
+# Modular Level Architect (MLA)
 
 An integrated Unity Editor suite for the procedural generation of grid-based levels and the streamlined construction of modular room prefabs. The system combines a rule-based generation core with a comprehensive set of in-editor builder utilities to accelerate development workflows.
 

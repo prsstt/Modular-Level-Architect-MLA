@@ -19,7 +19,7 @@ public class LevelGeneratorWindow : EditorWindow
     private string[] tabs = { "Generator", "Builder Helper" };
     private RoomShapeGuide selectedShapeGuide = RoomShapeGuide.None;
 
-    [MenuItem("Tools/Procedural Level Generator")]
+    [MenuItem("Tools/Modular Level Architect (MLA)")]
     public static void ShowWindow()
     {
         System.Type inspectorType = System.Type.GetType("UnityEditor.InspectorWindow,UnityEditor");
@@ -27,11 +27,11 @@ public class LevelGeneratorWindow : EditorWindow
         LevelGeneratorWindow window;
         if (inspectorType != null)
         {
-            window = GetWindow<LevelGeneratorWindow>("Level Generator", inspectorType);
+            window = GetWindow<LevelGeneratorWindow>("MLA", inspectorType);
         }
         else
         {
-            window = GetWindow<LevelGeneratorWindow>("Level Generator");
+            window = GetWindow<LevelGeneratorWindow>("MLA");
         }
         
         window.minSize = new Vector2(350, 450); 
